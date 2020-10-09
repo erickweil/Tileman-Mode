@@ -101,7 +101,40 @@ public interface TilemanModeConfig extends Config {
             description = "Configures whether marked tiles should be drawn on minimap",
             position = 4
     )
-    default boolean drawTileOnMinimmap() {
+    default boolean drawTilesOnMinimmap() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "drawTilesOnWorldMap",
+            name = "Draw tiles on world map",
+            section = settingsSection,
+            description = "Configures whether marked tiles should be drawn on world map",
+            position = 5
+    )
+    default boolean drawTilesOnWorldMap() {
+        return false;
+    }
+    
+    @ConfigItem(
+            keyName = "worldMapTilesMinWidth",
+            name = "World Map Width",
+            section = settingsSection,
+            description = "Minimum Width which the tiles will be drawed for easy visualization",
+            position = 6
+    )
+    default int worldMapTilesMinWidth() {
+        return 4;
+    }
+    
+    @ConfigItem(
+            keyName = "worldMapFill",
+            name = "World Map Fill",
+            section = settingsSection,
+            description = "Defrine if tiles should be filled or just outlined",
+            position = 7
+    )
+    default boolean worldMapFill() {
         return false;
     }
 
@@ -111,10 +144,32 @@ public interface TilemanModeConfig extends Config {
             name = "Tile Color",
             section = settingsSection,
             description = "Configures the color of the tiles",
-            position = 5
+            position = 8
     )
     default Color markerColor() {
         return Color.YELLOW;
+    }
+	
+	@ConfigItem(
+            keyName = "maxDrawDistance",
+            name = "Tiles Draw Distance",
+            section = settingsSection,
+            description = "How far should draw the tiles",
+            position = 9
+    )
+    default int maxDrawDistance() {
+        return 32;
+    }
+    
+    @ConfigItem(
+            keyName = "showHoveredTile",
+            name = "Highlight hovered tile",
+            section = settingsSection,
+            description = "Info about hovered mouse tile",
+            position = 10
+    )
+    default boolean showHoveredTile() {
+        return true;
     }
 
     /***   Custom Game Mode section   ***/

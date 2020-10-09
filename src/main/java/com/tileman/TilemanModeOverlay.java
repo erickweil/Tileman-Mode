@@ -35,10 +35,10 @@ import net.runelite.client.ui.overlay.*;
 import javax.inject.Inject;
 import java.awt.*;
 import java.util.Collection;
+import net.runelite.api.Tile;
 
 public class TilemanModeOverlay extends Overlay
 {
-	private static final int MAX_DRAW_DISTANCE = 32;
 
 	private final Client client;
 	private final TilemanModePlugin plugin;
@@ -70,15 +70,83 @@ public class TilemanModeOverlay extends Overlay
 
 			drawTile(graphics, point);
 		}
+	
+		// Tiles Hovered
+		if (config.showHoveredTile())
+		{
+			// If we have tile "selected" render it
+			if (client.getSelectedSceneTile() != null)
+			{
+				renderInfoTile(graphics, client.getSelectedSceneTile(), new Color(0x00000000,true));
+			}
+		}     
 
 		return null;
+	}
+	
+	private void renderInfoTile(final Graphics2D graphics, final Tile destTile, final Color color)
+	{
+		if (destTile == null || destTile.getLocalLocation() == null)
+		{
+			return;
+		}
+		LocalPoint point = destTile.getLocalLocation();
+		
+		
+		LocalPoint infoPoint = new LocalPoint(point.getX(),point.getY());
+		boolean walkable = plugin.isWalkable(point,0,0);
+
+		final Polygon poly = Perspective.getCanvasTilePoly(client, infoPoint);
+
+		if (poly == null)
+		{
+			return;
+		}
+
+
+		
+		//Point p1 = localToCanvas(client, swX, swY, swHeight);
+		//Point p2 = localToCanvas(client, nwX, nwY, nwHeight);
+		//Point p3 = localToCanvas(client, neX, neY, neHeight);
+		//Point p4 = localToCanvas(client, seX, seY, seHeight);
+		/*
+		3-------2
+		|       |
+		|       |
+		0-------1
+		*/
+		OverlayUtil.renderPolygon(graphics, poly, walkable ? color : Color.RED);
+		
+		// North
+		if(!plugin.isWalkable(point, 0, 1))
+			polyWall(graphics, poly, 3, 2);
+		// South               
+		if(!plugin.isWalkable(point, 0, -1))
+			polyWall(graphics, poly, 0, 1);
+		// East
+		if(!plugin.isWalkable(point, 1, 0))
+			polyWall(graphics, poly, 1, 2);
+		// West
+		if(!plugin.isWalkable(point, -1, 0))
+			polyWall(graphics, poly, 0, 3);
+	}
+	
+	private void polyWall(final Graphics2D graphics,Polygon poly,int a,int b)
+	{
+		Polygon polyN = new Polygon();
+		polyN.addPoint(poly.xpoints[a], poly.ypoints[a]);
+		polyN.addPoint(poly.xpoints[b], poly.ypoints[b]);
+		polyN.addPoint(poly.xpoints[a], poly.ypoints[a]);
+		polyN.addPoint(poly.xpoints[b], poly.ypoints[b]);
+
+		OverlayUtil.renderPolygon(graphics, polyN, Color.RED);
 	}
 
 	private void drawTile(Graphics2D graphics, WorldPoint point)
 	{
 		WorldPoint playerLocation = client.getLocalPlayer().getWorldLocation();
 
-		if (point.distanceTo(playerLocation) >= MAX_DRAW_DISTANCE)
+		if (point.distanceTo(playerLocation) >= config.maxDrawDistance())
 		{
 			return;
 		}

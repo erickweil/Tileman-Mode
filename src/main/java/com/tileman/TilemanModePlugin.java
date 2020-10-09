@@ -74,6 +74,8 @@ public class TilemanModePlugin extends Plugin {
     @Getter(AccessLevel.PACKAGE)
     private final List<WorldPoint> points = new ArrayList<>();
 
+    private final Map<Integer,Collection<TilemanModeTile>> pointsCache = new HashMap<>();
+    
     @Inject
     private Client client;
 
@@ -91,6 +93,9 @@ public class TilemanModePlugin extends Plugin {
 
     @Inject
     private TilemanModeMinimapOverlay minimapOverlay;
+
+    @Inject
+    private TilemanModeWorldMapOverlay worldMapOverlay;
 
     @Inject
     private TileInfoOverlay infoOverlay;
@@ -224,6 +229,7 @@ public class TilemanModePlugin extends Plugin {
     protected void startUp() {
         overlayManager.add(overlay);
         overlayManager.add(minimapOverlay);
+        overlayManager.add(worldMapOverlay);
         overlayManager.add(infoOverlay);
         loadPoints();
         updateTileCounter();
@@ -243,17 +249,18 @@ public class TilemanModePlugin extends Plugin {
     protected void shutDown() {
         overlayManager.remove(overlay);
         overlayManager.remove(minimapOverlay);
+        overlayManager.remove(worldMapOverlay);
         overlayManager.remove(infoOverlay);
         points.clear();
     }
 
     public void importGroundMarkerTiles() {
         // Get and store all the Ground Markers Regions
-        List<String> groundMarkerRegions = removeRegionPrefixes(configManager.getConfigurationKeys("groundMarker.region"));
+        List<String> groundMarkerRegions = getAllRegionIds("groundMarker");
         // If none, Exit function
 
         // Get and store array list of existing Tileman World Regions (like updateTileCounter does)
-        List<String> tilemanModeRegions = removeRegionPrefixes(configManager.getConfigurationKeys(CONFIG_GROUP + ".region"));
+        List<String> tilemanModeRegions = getAllRegionIds(CONFIG_GROUP);
 
         // CONVERSION
         // Loop through Ground Marker Regions
@@ -293,6 +300,10 @@ public class TilemanModePlugin extends Plugin {
         loadPoints();
     }
 
+    List<String> getAllRegionIds(String configGroup) {
+        return removeRegionPrefixes(configManager.getConfigurationKeys(configGroup + ".region"));
+    }
+
     private List<String> removeRegionPrefixes(List<String> regions) {
         List<String> trimmedRegions = new ArrayList<String>();
         for (String region : regions) {
@@ -305,8 +316,8 @@ public class TilemanModePlugin extends Plugin {
         return region.substring(region.indexOf('_') + 1);
     }
 
-    private Collection<TilemanModeTile> getTiles(int regionId) {
-        return getConfiguration(CONFIG_GROUP, REGION_PREFIX + regionId);
+    Collection<TilemanModeTile> getTiles(int regionId) {
+        return getTiles(""+regionId);
     }
 
     private Collection<TilemanModeTile> getTiles(String regionId) {
@@ -365,6 +376,18 @@ public class TilemanModePlugin extends Plugin {
         }.getType());
     }
 
+    protected Collection<TilemanModeTile> getTilesFromCache(int regionId) {
+        if(pointsCache.containsKey(regionId))
+        {
+            return pointsCache.get(regionId);
+        }
+        
+        Collection<TilemanModeTile> retP = getTiles(regionId);
+        pointsCache.put(regionId, retP);
+        
+        return retP;
+    }
+    
     private void loadPoints() {
         points.clear();
 
@@ -377,7 +400,9 @@ public class TilemanModePlugin extends Plugin {
         for (int regionId : regions) {
             // load points for region
             log.debug("Loading points for region {}", regionId);
-            Collection<WorldPoint> worldPoint = translateToWorldPoint(getTiles(regionId));
+            Collection<TilemanModeTile> tiles = getTiles(regionId);
+            pointsCache.put(regionId, tiles);
+            Collection<WorldPoint> worldPoint = translateToWorldPoint(tiles);
             points.addAll(worldPoint);
         }
         updateTileCounter();
@@ -546,6 +571,46 @@ public class TilemanModePlugin extends Plugin {
                 fillTile(northPoint);
             }
         }
+    }
+	
+	protected boolean isWalkable(LocalPoint p,int offX,int offY)
+    {
+        MovementFlag[] tile = getTileMovementFlags(p);
+        boolean isFullBlock = containsAnyOf(fullBlock, tile);
+        if(isFullBlock) return false;
+        
+        if(offX == 0 && offY == 0)
+            return !isFullBlock;
+        
+        LocalPoint offPoint = new LocalPoint(p.getX()+offX*128,p.getY()+offY*128);
+        
+        if(offX == 0)
+        {
+            if(offY == -1) // South
+            {
+                return isWalkable(offPoint,0,0) && !containsAnyOf(tile, new MovementFlag[]{MovementFlag.BLOCK_MOVEMENT_SOUTH});
+            }
+            else // 1  North
+            {
+                return isWalkable(offPoint,0,0) && !containsAnyOf(tile, new MovementFlag[]{MovementFlag.BLOCK_MOVEMENT_NORTH});
+            }
+        }
+        else if(offY == 0)
+        {
+            if(offX == -1) // West
+            {
+                return isWalkable(offPoint,0,0) && !containsAnyOf(tile, new MovementFlag[]{MovementFlag.BLOCK_MOVEMENT_WEST});
+            }
+            else // 1 East
+            {
+                return isWalkable(offPoint,0,0) && !containsAnyOf(tile, new MovementFlag[]{MovementFlag.BLOCK_MOVEMENT_EAST});
+            }
+        }
+        else
+        {
+            return isWalkable(offPoint,0,0);
+        }
+        
     }
 
     private MovementFlag[] getTileMovementFlags(int x, int y) {
